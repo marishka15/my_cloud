@@ -124,11 +124,16 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
 MEDIA_ROOT = BASE_DIR / 'file_storage'
 MEDIA_URL = '/file_storage/'
 
 MY_CLOUD_STORAGE_ROOT = BASE_DIR / 'file_storage'
+
+FRONTEND_DIR = BASE_DIR.parent / 'frontend'
+FRONTEND_DIST_DIR = FRONTEND_DIR / 'dist'
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
