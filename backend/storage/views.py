@@ -63,10 +63,12 @@ def error_response(message, status=400):
 
 def require_auth(request):
     if not request.user.is_authenticated:
-        return error_response(
-            'Требуется авторизация',
-            status=401,
+        logger.debug(
+            'Неавторизованный запрос: %s %s',
+            request.method,
+            request.path,
         )
+        return error_response('Требуется авторизация', 401)
     return None
 
 

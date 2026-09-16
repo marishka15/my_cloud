@@ -154,7 +154,7 @@ LOGGING = {
     'loggers': {
         'storage': {
             'handlers': ['console'],
-            'level': 'INFO',
+            'level': 'DEBUG',
         },
     },
 }
