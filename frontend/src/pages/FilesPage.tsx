@@ -213,13 +213,29 @@ export default function FilesPage() {
     }
   }
 
+  function copyToClipboard(text: string) {
+    if (navigator.clipboard?.writeText) {
+      return navigator.clipboard.writeText(text)
+    }
+
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.style.position = 'fixed'
+    textarea.style.opacity = '0'
+
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+
+    return Promise.resolve()
+  }
+
   async function handleCreatePublicLink(fileId: number) {
     try {
       const result = await api.createPublicLink(fileId)
 
-      await navigator.clipboard.writeText(
-        result.public_link,
-      )
+      await copyToClipboard(result.public_link)
 
       setPublicLink(result.public_link)
     } catch (err) {
