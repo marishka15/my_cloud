@@ -23,12 +23,51 @@ interface ApiError {
   error?: string
 }
 
+function getCookie(name: string): string | null {
+  const cookies = document.cookie.split(';')
+
+  for (const cookie of cookies) {
+    const [key, value] = cookie.trim().split('=')
+
+    if (key === name) {
+      return decodeURIComponent(value)
+    }
+  }
+
+  return null
+}
+
+async function ensureCsrfToken() {
+  if (!getCookie('csrftoken')) {
+    await fetch('/api/csrf/', {
+      credentials: 'include',
+    })
+  }
+}
+
 async function request<T>(
   url: string,
   options: RequestInit = {},
 ): Promise<T> {
+  const method = options.method?.toUpperCase() || 'GET'
+
+  if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+    await ensureCsrfToken()
+  }
+
+  const headers = new Headers(options.headers)
+
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+    const csrfToken = getCookie('csrftoken')
+
+    if (csrfToken) {
+      headers.set('X-CSRFToken', csrfToken)
+    }
+  }
+
   const response = await fetch(url, {
     ...options,
+    headers,
     credentials: 'include',
   })
 

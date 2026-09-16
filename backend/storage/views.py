@@ -9,7 +9,7 @@ from pathlib import Path
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.http import FileResponse, JsonResponse
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import ensure_csrf_cookie
 
 from .models import File, User
 
@@ -21,6 +21,10 @@ USERNAME_PATTERN = re.compile(r'^[A-Za-z][A-Za-z0-9]{3,19}$')
 PASSWORD_PATTERN = re.compile(
     r'^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{6,}$'
 )
+
+@ensure_csrf_cookie
+def csrf_token(request):
+    return JsonResponse({'message': 'CSRF cookie set'})
 
 
 def json_body(request):
@@ -97,7 +101,6 @@ def get_target_user(request):
     return target_user
 
 
-@csrf_exempt
 def register(request):
     if request.method != 'POST':
         return error_response('Метод не поддерживается', 405)
@@ -156,7 +159,7 @@ def register(request):
     )
 
 
-@csrf_exempt
+
 def login_view(request):
     if request.method != 'POST':
         return error_response('Метод не поддерживается', 405)
@@ -201,7 +204,7 @@ def login_view(request):
     })
 
 
-@csrf_exempt
+
 def logout_view(request):
     auth_error = require_auth(request)
 
@@ -245,7 +248,7 @@ def users_list(request):
     })
 
 
-@csrf_exempt
+
 def user_update(request, user_id):
     auth_error = require_admin(request)
 
@@ -292,7 +295,7 @@ def user_update(request, user_id):
     })
 
 
-@csrf_exempt
+
 def user_delete(request, user_id):
     auth_error = require_admin(request)
 
@@ -370,7 +373,7 @@ def files_list(request):
     })
 
 
-@csrf_exempt
+
 def file_upload(request):
     auth_error = require_auth(request)
 
@@ -443,7 +446,7 @@ def file_upload(request):
     )
 
 
-@csrf_exempt
+
 def file_update(request, file_id):
     auth_error = require_auth(request)
 
@@ -498,7 +501,7 @@ def file_update(request, file_id):
     })
 
 
-@csrf_exempt
+
 def file_delete(request, file_id):
     auth_error = require_auth(request)
 
@@ -567,7 +570,7 @@ def file_download(request, file_id):
     return response
 
 
-@csrf_exempt
+
 def create_public_link(request, file_id):
     auth_error = require_auth(request)
 

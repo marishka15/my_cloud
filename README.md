@@ -225,17 +225,28 @@ python manage.py migrate
 
 ---
 
-## 5. Создать администратора
+## 5. Создание администратора
 
-Для создания пользователя с правами администратора:
+При выполнении миграций автоматически применяется data-миграция `storage.0003_create_admin`.
 
-```bash
-python manage.py createsuperuser
+Она создаёт пользователя:
+
+```text
+Логин: admin
 ```
 
-Необходимо указать запрашиваемые данные пользователя.
+с правами администратора.
 
-Администратор используется для доступа к административному интерфейсу приложения.
+Пароль администратора задаётся через переменную окружения:
+
+```env
+ADMIN_PASSWORD=your-admin-password
+```
+
+Пароль не хранится в исходном коде и не публикуется в репозитории.
+
+Отдельно выполнять команду `createsuperuser` для стандартного развёртывания проекта не требуется.
+
 
 ---
 
@@ -505,55 +516,434 @@ backend/.env.example
 
 # Развёртывание
 
-Проект подготовлен как единый репозиторий, содержащий backend и frontend.
+Проект развёрнут на виртуальном сервере Reg.ru с операционной системой Ubuntu.
 
-Локальная разработка выполняется с использованием Django development server и Vite development server.
+## Production-окружение
 
-Инструкция по production-развёртыванию на платформе reg.ru будет дополнена после настройки и проверки фактического окружения развёртывания.
+Используются:
 
----
+* Ubuntu;
+* Python 3.10+;
+* Django;
+* PostgreSQL;
+* Node.js и npm;
+* React;
+* Gunicorn;
+* Nginx;
+* systemd.
 
-# Дипломный проект
+Backend запускается через Gunicorn, управление процессом выполняется с помощью systemd. Nginx принимает внешние HTTP-запросы и передаёт их Django через Gunicorn.
 
-Проект выполнен в рамках дипломной работы по профессии:
+## 1. Подготовка сервера
 
-**«Fullstack-разработчик на Python»**
+Подключиться к серверу по SSH и обновить пакеты:
 
-Проект реализует основные требования задания по созданию облачного файлового хранилища с backend на Django и PostgreSQL и frontend на React.
+```bash
+sudo apt update
+sudo apt upgrade -y
+```
 
-## Развёртывание
+Установить необходимые компоненты:
 
-Проект развёрнут на виртуальном сервере Reg.ru.
+```bash
+sudo apt install postgresql postgresql-contrib nginx nodejs npm git -y
+```
 
-### Серверная часть
+Проверить установленные версии:
 
-* ОС: Ubuntu
-* Веб-сервер: Nginx
-* WSGI-сервер: Gunicorn
-* Backend: Django
-* База данных: PostgreSQL
-* Frontend: React
+```bash
+python3 --version
+node --version
+npm --version
+git --version
+psql --version
+nginx -v
+```
 
-### Запуск проекта
+## 2. Получение проекта
 
-Frontend собирается командой:
+Клонировать репозиторий:
+
+```bash
+git clone https://github.com/marishka15/my_cloud.git
+cd my_cloud
+```
+
+Backend находится в каталоге:
+
+```text
+backend/
+```
+
+Frontend находится в каталоге:
+
+```text
+frontend/
+```
+
+## 3. Создание виртуального окружения Python
+
+Перейти в backend:
+
+```bash
+cd backend
+```
+
+Создать виртуальное окружение:
+
+```bash
+python3 -m venv venv
+```
+
+Активировать окружение:
+
+```bash
+source venv/bin/activate
+```
+
+Установить зависимости:
+
+```bash
+pip install -r requirements.txt
+```
+
+## 4. Настройка PostgreSQL
+
+Создать пользователя PostgreSQL:
+
+```bash
+sudo -u postgres createuser -P mycloud_db
+```
+
+Создать базу данных:
+
+```bash
+sudo -u postgres createdb -O mycloud_db my_cloud
+```
+
+При необходимости проверить подключение:
+
+```bash
+sudo -u postgres psql
+```
+
+В PostgreSQL пользователь `mycloud_db` должен иметь права владельца базы `my_cloud`.
+
+## 5. Настройка переменных окружения
+
+В каталоге `backend` создать файл:
+
+```text
+.env
+```
+
+Пример production-конфигурации:
+
+```env
+SECRET_KEY=your-production-secret-key
+DEBUG=False
+ALLOWED_HOSTS=134.0.112.131,127.0.0.1,localhost
+
+DB_NAME=my_cloud
+DB_USER=mycloud_db
+DB_PASSWORD=your-database-password
+DB_HOST=localhost
+DB_PORT=5432
+
+ADMIN_PASSWORD=your-admin-password
+```
+
+`SECRET_KEY`, `DB_PASSWORD` и `ADMIN_PASSWORD` должны содержать реальные секретные значения и не должны публиковаться в репозитории.
+
+Шаблон переменных окружения находится в:
+
+```text
+backend/.env.example
+```
+
+## 6. Миграции и создание администратора
+
+Из каталога `backend` выполнить:
+
+```bash
+python manage.py migrate
+```
+
+Миграции приложения `storage` создают необходимые таблицы.
+
+Последующая data-миграция автоматически создаёт пользователя `admin` с административными правами. Пароль берётся из переменной окружения `ADMIN_PASSWORD`.
+
+Отдельный запуск `createsuperuser` для стандартной настройки проекта не требуется.
+
+Проверить состояние Django:
+
+```bash
+python manage.py check
+```
+
+## 7. Сборка frontend
+
+Перейти в каталог frontend:
+
+```bash
+cd ../frontend
+```
+
+Установить зависимости:
+
+```bash
+npm install
+```
+
+Создать production-сборку:
 
 ```bash
 npm run build
 ```
 
-Backend запускается через Gunicorn и управляется с помощью systemd.
+После выполнения команды создаётся каталог:
 
-Nginx используется как веб-сервер и проксирует запросы к Django.
+```text
+frontend/dist/
+```
 
-### Доступ к приложению
+Production-сборка frontend используется Django для отдачи пользовательского интерфейса.
 
-Приложение доступно по адресу:
+## 8. Сборка статических файлов Django
 
+Вернуться в каталог backend:
+
+```bash
+cd ../backend
+```
+
+Выполнить:
+
+```bash
+python manage.py collectstatic --noinput
+```
+
+Статические файлы будут собраны в каталог:
+
+```text
+backend/staticfiles/
+```
+
+## 9. Проверка Gunicorn
+
+Gunicorn используется как WSGI-сервер Django.
+
+Проверить запуск приложения можно командой:
+
+```bash
+gunicorn config.wsgi:application --bind 127.0.0.1:8000
+```
+
+После проверки процесс можно остановить.
+
+В production Gunicorn запускается автоматически через systemd.
+
+## 10. Настройка systemd
+
+Создать файл:
+
+```text
+/etc/systemd/system/mycloud.service
+```
+
+Конфигурация:
+
+```ini
+[Unit]
+Description=My Cloud Django application
+After=network.target postgresql.service
+
+[Service]
+User=mycloud
+Group=mycloud
+WorkingDirectory=/home/mycloud/my_cloud/backend
+Environment="PATH=/home/mycloud/my_cloud/venv/bin"
+ExecStart=/home/mycloud/my_cloud/venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+После создания файла выполнить:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now mycloud
+```
+
+Проверить состояние:
+
+```bash
+sudo systemctl status mycloud
+```
+
+При успешном запуске сервис должен находиться в состоянии:
+
+```text
+active (running)
+```
+
+## 11. Настройка Nginx
+
+Создать конфигурацию:
+
+```text
+/etc/nginx/sites-available/mycloud
+```
+
+Используемая конфигурация:
+
+```nginx
+server {
+    listen 80;
+    server_name 134.0.112.131;
+
+    location /static/ {
+        alias /home/mycloud/my_cloud/backend/staticfiles/;
+    }
+
+    location /file_storage/ {
+        alias /home/mycloud/my_cloud/backend/file_storage/;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Активировать конфигурацию:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/mycloud /etc/nginx/sites-enabled/mycloud
+```
+
+При необходимости удалить стандартную конфигурацию:
+
+```bash
+sudo rm /etc/nginx/sites-enabled/default
+```
+
+Проверить конфигурацию:
+
+```bash
+sudo nginx -t
+```
+
+Перезапустить Nginx:
+
+```bash
+sudo systemctl restart nginx
+```
+
+Nginx используется как внешний веб-сервер и reverse proxy. Запросы передаются на Gunicorn, а статические файлы Django обслуживаются непосредственно Nginx.
+
+## 12. Проверка production-приложения
+
+Проверить состояние Gunicorn:
+
+```bash
+sudo systemctl status mycloud
+```
+
+Проверить состояние Nginx:
+
+```bash
+sudo systemctl status nginx
+```
+
+Проверить Django:
+
+```bash
+cd /home/mycloud/my_cloud/backend
+source venv/bin/activate
+python manage.py check
+```
+
+После успешного запуска приложение доступно по адресу:
+
+```text
 http://134.0.112.131
+```
 
-### Переменные окружения
+## 13. Обновление проекта
 
-Для подключения к базе данных и настройки Django используются переменные окружения, хранящиеся в файле `.env`.
+При изменении проекта получить последнюю версию:
 
-Секретные данные (`SECRET_KEY`, пароль базы данных и другие приватные параметры) не хранятся в репозитории.
+```bash
+cd /home/mycloud/my_cloud
+git pull
+```
+
+При изменении зависимостей:
+
+```bash
+cd backend
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+После изменения моделей выполнить:
+
+```bash
+python manage.py migrate
+```
+
+После изменения frontend выполнить:
+
+```bash
+cd ../frontend
+npm install
+npm run build
+```
+
+После изменений backend перезапустить Gunicorn:
+
+```bash
+sudo systemctl restart mycloud
+```
+
+При изменении конфигурации Nginx проверить её:
+
+```bash
+sudo nginx -t
+```
+
+и перезапустить Nginx:
+
+```bash
+sudo systemctl restart nginx
+```
+
+## 14. Документация
+
+* Gunicorn: https://docs.gunicorn.org/
+* Nginx: https://nginx.org/en/docs/
+* Django: https://docs.djangoproject.com/
+* PostgreSQL: https://www.postgresql.org/docs/
+* React: https://react.dev/
+* Vite: https://vite.dev/
+
+## 15. Безопасность конфигурации
+
+Файл `.env` не добавляется в Git.
+
+В репозитории отсутствуют реальные значения:
+
+* `SECRET_KEY`;
+* `DB_PASSWORD`;
+* `ADMIN_PASSWORD`.
+
+Для production используются отдельные значения переменных окружения.
+
+Секретные данные не должны размещаться непосредственно в исходном коде или README.
