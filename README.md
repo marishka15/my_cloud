@@ -807,10 +807,6 @@ server {
         alias /home/mycloud/my_cloud/backend/staticfiles/;
     }
 
-    location /file_storage/ {
-        alias /home/mycloud/my_cloud/backend/file_storage/;
-    }
-
     location / {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
@@ -845,7 +841,7 @@ sudo nginx -t
 sudo systemctl restart nginx
 ```
 
-Nginx используется как внешний веб-сервер и reverse proxy. Запросы передаются на Gunicorn, а статические файлы Django обслуживаются непосредственно Nginx.
+Nginx используется как внешний веб-сервер и reverse proxy. Запросы передаются на Gunicorn, а статические файлы Django обслуживаются непосредственно Nginx. Доступ к пользовательским файлам выполняется через Django API с проверкой авторизации и прав доступа.
 
 ## 12. Проверка production-приложения
 
