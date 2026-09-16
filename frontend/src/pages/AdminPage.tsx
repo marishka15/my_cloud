@@ -35,6 +35,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [userToDelete, setUserToDelete] = useState<User | null>(null)
 
   async function loadUsers() {
     try {
@@ -78,16 +79,19 @@ export default function AdminPage() {
   }
 
   async function handleDelete(user: User) {
-    const confirmed = window.confirm(
-      `Удалить пользователя "${user.username}"?`,
-    )
+    setUserToDelete(user)
+  }
 
-    if (!confirmed) {
+  async function handleDeleteConfirm() {
+    if (!userToDelete) {
       return
     }
 
     try {
-      await deleteUser(user.id)
+      await deleteUser(userToDelete.id)
+
+      setUserToDelete(null)
+
       await loadUsers()
     } catch (err) {
       setError(
@@ -196,6 +200,34 @@ export default function AdminPage() {
             ))}
           </tbody>
         </table>
+        </div>
+      )}
+      {userToDelete && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>Удалить пользователя?</h3>
+
+            <p>
+              Вы действительно хотите удалить пользователя{' '}
+              <strong>{userToDelete.username}</strong>?
+            </p>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                onClick={() => setUserToDelete(null)}
+              >
+                Отмена
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+              >
+                Удалить
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </main>

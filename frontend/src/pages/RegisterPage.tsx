@@ -16,9 +16,34 @@ export default function RegisterPage() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [validationError, setValidationError] = useState('')
 
-  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
-    event.preventDefault()
+async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
+  event.preventDefault()
+  setValidationError('')
+
+  const usernamePattern = /^[A-Za-z][A-Za-z0-9]{3,19}$/
+  const passwordPattern =
+    /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{6,}$/
+
+  if (!usernamePattern.test(username)) {
+    setValidationError(
+      'Логин: латинские буквы и цифры, первый символ — буква, длина 4–20 символов',
+    )
+    return
+  }
+
+  if (!fullName.trim()) {
+    setValidationError('Полное имя обязательно')
+    return
+  }
+
+  if (!passwordPattern.test(password)) {
+    setValidationError(
+      'Пароль должен содержать минимум 6 символов, заглавную букву, цифру и специальный символ',
+    )
+    return
+  }
 
     const result = await dispatch(
       registerUser({
@@ -85,6 +110,12 @@ export default function RegisterPage() {
             required
           />
         </label>
+
+        {validationError && (
+          <div className="error">
+            {validationError}
+          </div>
+        )}
 
         {error && (
           <div className="error">

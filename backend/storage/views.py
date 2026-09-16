@@ -10,7 +10,8 @@ from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.http import FileResponse, JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
-
+from django.utils import timezone
+from django.db import IntegrityError
 from .models import File, User
 
 
@@ -141,12 +142,22 @@ def register(request):
     if User.objects.filter(email=email).exists():
         return error_response('Такой email уже существует', 409)
 
-    user = User.objects.create_user(
+    try:
+        user = User.objects.create_user(
         username=username,
         email=email,
         full_name=full_name,
         password=password,
-    )
+        )
+    except IntegrityError:
+        logger.error(
+            'Ошибка создания пользователя %s: конфликт уникальности',
+            username,
+        )
+        return error_response(
+            'Пользователь с таким логином или email уже существует',
+            409,
+        )
 
     logger.info('Зарегистрирован пользователь %s', user.username)
 
@@ -203,24 +214,6 @@ def login_view(request):
         'user': user_to_dict(user),
     })
 
-
-
-def logout_view(request):
-    auth_error = require_auth(request)
-
-    if auth_error:
-        return auth_error
-
-    username = request.user.username
-    logout(request)
-
-    logger.info('Пользователь %s вышел из системы', username)
-
-    return JsonResponse({
-        'message': 'Выход выполнен',
-    })
-
-
 def current_user(request):
     auth_error = require_auth(request)
 
@@ -230,7 +223,6 @@ def current_user(request):
     return JsonResponse({
         'user': user_to_dict(request.user),
     })
-
 
 def users_list(request):
     auth_error = require_admin(request)
@@ -247,6 +239,16 @@ def users_list(request):
         ]
     })
 
+def logout_view(request):
+    username = request.user.username if request.user.is_authenticated else 'неавторизованный пользователь'
+
+    logout(request)
+
+    logger.info('Выход из системы: %s', username)
+
+    return JsonResponse({
+        'message': 'Выход выполнен',
+    })
 
 
 def user_update(request, user_id):
@@ -410,7 +412,8 @@ def file_upload(request):
 
     storage_dir.mkdir(parents=True, exist_ok=True)
 
-    unique_name = f'{uuid.uuid4().hex}_{uploaded_file.name}'
+    extension = Path(uploaded_file.name).suffix
+    unique_name = f'{uuid.uuid4().hex}{extension}'
     file_path = storage_dir / unique_name
 
     with file_path.open('wb+') as destination:
@@ -422,7 +425,7 @@ def file_upload(request):
         original_name=uploaded_file.name,
         size=uploaded_file.size,
         comment=comment,
-        file_path=str(file_path),
+        file_path=str(file_path.relative_to(settings.MY_CLOUD_STORAGE_ROOT)),
     )
 
     logger.info(
@@ -475,6 +478,9 @@ def file_update(request, file_id):
         if not new_name:
             return error_response('Имя файла не может быть пустым')
 
+        if '/' in new_name or '\\' in new_name or '..' in new_name or '\x00' in new_name:
+            return error_response('Недопустимое имя файла')
+
         item.original_name = new_name
 
     if 'comment' in data:
@@ -519,8 +525,10 @@ def file_delete(request, file_id):
     if item.user_id != request.user.id and not request.user.is_admin:
         return error_response('Нет доступа', 403)
 
-    if os.path.exists(item.file_path):
-        os.remove(item.file_path)
+    file_path = Path(settings.MY_CLOUD_STORAGE_ROOT) / item.file_path
+
+    if file_path.exists():
+        file_path.unlink()
 
     item.delete()
 
@@ -548,11 +556,13 @@ def file_download(request, file_id):
 
     if item.user_id != request.user.id and not request.user.is_admin:
         return error_response('Нет доступа', 403)
-
-    if not os.path.exists(item.file_path):
+    
+    file_path = Path(settings.MY_CLOUD_STORAGE_ROOT) / item.file_path
+    
+    if not file_path.exists():
         return error_response('Файл отсутствует на сервере', 404)
 
-    item.last_download = django_timezone_now()
+    item.last_download = timezone.now()
     item.save(update_fields=['last_download'])
 
     logger.info(
@@ -562,7 +572,7 @@ def file_download(request, file_id):
     )
 
     response = FileResponse(
-        open(item.file_path, 'rb'),
+        open(file_path, 'rb'),
         as_attachment=True,
         filename=item.original_name,
     )
@@ -607,10 +617,12 @@ def public_download(request, public_link):
     except File.DoesNotExist:
         return error_response('Файл не найден', 404)
 
-    if not os.path.exists(item.file_path):
-        return error_response('Файл отсутствует на сервере', 404)
+    file_path = Path(settings.MY_CLOUD_STORAGE_ROOT) / item.file_path
 
-    item.last_download = django_timezone_now()
+    if not file_path.exists():
+        return error_response('Файл отсутствует на сервере', 404)
+    
+    item.last_download = timezone.now()
     item.save(update_fields=['last_download'])
 
     logger.info(
@@ -619,13 +631,8 @@ def public_download(request, public_link):
     )
 
     return FileResponse(
-        open(item.file_path, 'rb'),
-        as_attachment=True,
-        filename=item.original_name,
+    open(file_path, 'rb'),
+    as_attachment=True,
+    filename=item.original_name,
     )
 
-
-def django_timezone_now():
-    from django.utils import timezone
-
-    return timezone.now()

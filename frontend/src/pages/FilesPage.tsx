@@ -17,6 +17,22 @@ function formatDate(date: string | null) {
   return new Date(date).toLocaleString('ru-RU')
 }
 
+function formatSize(size: number) {
+  if (size < 1024) {
+    return `${size} байт`
+  }
+
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} КБ`
+  }
+
+  if (size < 1024 * 1024 * 1024) {
+    return `${(size / (1024 * 1024)).toFixed(1)} МБ`
+  }
+
+  return `${(size / (1024 * 1024 * 1024)).toFixed(1)} ГБ`
+}
+
 export default function FilesPage() {
   const dispatch = useDispatch<AppDispatch>()
   const navigate = useNavigate()
@@ -40,6 +56,16 @@ export default function FilesPage() {
   const [uploadComment, setUploadComment] = useState('')
   const [uploading, setUploading] = useState(false)
 
+  const [renameFile, setRenameFile] = useState<CloudFile | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+
+  const [commentFile, setCommentFile] = useState<CloudFile | null>(null)
+  const [commentValue, setCommentValue] = useState('')
+
+  const [deleteFileId, setDeleteFileId] = useState<number | null>(null)
+
+  const [publicLink, setPublicLink] = useState('')
+  
   async function loadFiles() {
     try {
       setLoading(true)
@@ -108,12 +134,19 @@ export default function FilesPage() {
   }
 
   async function handleDelete(fileId: number) {
-    if (!confirm('Удалить файл?')) {
+    setDeleteFileId(fileId)
+  }
+
+  async function handleDeleteConfirm() {
+    if (deleteFileId === null) {
       return
     }
 
     try {
-      await api.deleteFile(fileId)
+      await api.deleteFile(deleteFileId)
+
+      setDeleteFileId(null)
+
       await loadFiles()
     } catch (err) {
       setError(
@@ -125,19 +158,22 @@ export default function FilesPage() {
   }
 
   async function handleRename(file: CloudFile) {
-    const newName = prompt(
-      'Новое имя файла:',
-      file.original_name,
-    )
+    setRenameFile(file)
+    setRenameValue(file.original_name)
+  }
 
-    if (!newName) {
+  async function handleRenameSubmit() {
+    if (!renameFile || !renameValue.trim()) {
       return
     }
 
     try {
-      await api.updateFile(file.id, {
-        original_name: newName,
+      await api.updateFile(renameFile.id, {
+        original_name: renameValue.trim(),
       })
+
+      setRenameFile(null)
+      setRenameValue('')
 
       await loadFiles()
     } catch (err) {
@@ -150,19 +186,22 @@ export default function FilesPage() {
   }
 
   async function handleCommentChange(file: CloudFile) {
-    const newComment = prompt(
-      'Комментарий к файлу:',
-      file.comment,
-    )
+    setCommentFile(file)
+    setCommentValue(file.comment)
+  }
 
-    if (newComment === null) {
+  async function handleCommentSubmit() {
+    if (!commentFile) {
       return
     }
 
     try {
-      await api.updateFile(file.id, {
-        comment: newComment,
+      await api.updateFile(commentFile.id, {
+        comment: commentValue,
       })
+
+      setCommentFile(null)
+      setCommentValue('')
 
       await loadFiles()
     } catch (err) {
@@ -182,9 +221,7 @@ export default function FilesPage() {
         result.public_link,
       )
 
-      alert(
-        `Специальная ссылка скопирована:\n${result.public_link}`,
-      )
+      setPublicLink(result.public_link)
     } catch (err) {
       setError(
         err instanceof Error
@@ -298,7 +335,7 @@ export default function FilesPage() {
                   </strong>
 
                   <p>
-                    Размер: {file.size} байт
+                    Размер: {formatSize(file.size)}
                   </p>
 
                   <p>
@@ -358,6 +395,126 @@ export default function FilesPage() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+        {renameFile && (
+          <div className="modal-overlay">
+            <div className="modal">
+              <h3>Переименовать файл</h3>
+
+              <input
+                type="text"
+                value={renameValue}
+                onChange={(event) =>
+                  setRenameValue(event.target.value)
+                }
+                autoFocus
+              />
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRenameFile(null)
+                    setRenameValue('')
+                  }}
+                >
+                  Отмена
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleRenameSubmit}
+                  disabled={!renameValue.trim()}
+                >
+                  Сохранить
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {commentFile && (
+          <div className="modal-overlay">
+            <div className="modal">
+              <h3>Изменить комментарий</h3>
+
+              <textarea
+                value={commentValue}
+                onChange={(event) =>
+                  setCommentValue(event.target.value)
+                }
+                autoFocus
+                rows={4}
+              />
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCommentFile(null)
+                    setCommentValue('')
+                  }}
+                >
+                  Отмена
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCommentSubmit}
+                >
+                  Сохранить
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {deleteFileId !== null && (
+          <div className="modal-overlay">
+            <div className="modal">
+              <h3>Удалить файл?</h3>
+
+              <p>Вы действительно хотите удалить этот файл?</p>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  onClick={() => setDeleteFileId(null)}
+                >
+                  Отмена
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDeleteConfirm}
+                >
+                  Удалить
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {publicLink && (
+          <div className="modal-overlay">
+            <div className="modal">
+              <h3>Специальная ссылка</h3>
+
+              <p>Ссылка скопирована в буфер обмена.</p>
+
+              <input
+                type="text"
+                value={publicLink}
+                readOnly
+              />
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  onClick={() => setPublicLink('')}
+                >
+                  Закрыть
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </main>

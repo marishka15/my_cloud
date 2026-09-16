@@ -131,7 +131,6 @@ STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_ROOT = BASE_DIR / 'file_storage'
-MEDIA_URL = '/file_storage/'
 
 MY_CLOUD_STORAGE_ROOT = BASE_DIR / 'file_storage'
 
